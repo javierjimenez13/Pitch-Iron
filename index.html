@@ -180,6 +180,13 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   };
   _bestVoice = _pickBestVoice();
 }
+/* Format milliseconds as m:ss for SoundCloud clip counters */
+function fmtTime(ms) {
+  const total = Math.max(0, Math.floor((ms || 0) / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 function speak(text, onEnd) {
   try {
     if (!("speechSynthesis" in window)) { onEnd && onEnd(); return; }
@@ -590,6 +597,12 @@ function App() {
   const completeFrameRef = useRef(null);
   const scStartRef = useRef(null);
   const scCompleteRef = useRef(null);
+  const [startPlaying, setStartPlaying] = useState(false);
+  const [startPos, setStartPos] = useState(0);
+  const [startDur, setStartDur] = useState(0);
+  const [completePlaying, setCompletePlaying] = useState(false);
+  const [completePos, setCompletePos] = useState(0);
+  const [completeDur, setCompleteDur] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -597,8 +610,21 @@ function App() {
     const init = () => {
       if (cancelled) return;
       if (window.SC && startFrameRef.current && completeFrameRef.current) {
-        scStartRef.current = window.SC.Widget(startFrameRef.current);
-        scCompleteRef.current = window.SC.Widget(completeFrameRef.current);
+        const sw = window.SC.Widget(startFrameRef.current);
+        const cw = window.SC.Widget(completeFrameRef.current);
+        scStartRef.current = sw;
+        scCompleteRef.current = cw;
+        const E = window.SC.Widget.Events;
+        sw.bind(E.READY, () => sw.getDuration((d) => !cancelled && setStartDur(d)));
+        sw.bind(E.PLAY, () => !cancelled && setStartPlaying(true));
+        sw.bind(E.PAUSE, () => !cancelled && setStartPlaying(false));
+        sw.bind(E.FINISH, () => { if (cancelled) return; setStartPlaying(false); setStartPos(0); });
+        sw.bind(E.PLAY_PROGRESS, (e) => !cancelled && setStartPos(e.currentPosition));
+        cw.bind(E.READY, () => cw.getDuration((d) => !cancelled && setCompleteDur(d)));
+        cw.bind(E.PLAY, () => !cancelled && setCompletePlaying(true));
+        cw.bind(E.PAUSE, () => !cancelled && setCompletePlaying(false));
+        cw.bind(E.FINISH, () => { if (cancelled) return; setCompletePlaying(false); setCompletePos(0); });
+        cw.bind(E.PLAY_PROGRESS, (e) => !cancelled && setCompletePos(e.currentPosition));
       } else {
         poll = setTimeout(init, 250);
       }
@@ -607,8 +633,8 @@ function App() {
     return () => { cancelled = true; if (poll) clearTimeout(poll); };
   }, []);
 
-  const playStartClip = () => { try { scStartRef.current && scStartRef.current.play(); } catch {} };
-  const playCompleteClip = () => { try { scCompleteRef.current && scCompleteRef.current.play(); } catch {} };
+  const toggleStartClip = () => { try { if (!scStartRef.current) return; startPlaying ? scStartRef.current.pause() : scStartRef.current.play(); } catch {} };
+  const toggleCompleteClip = () => { try { if (!scCompleteRef.current) return; completePlaying ? scCompleteRef.current.pause() : scCompleteRef.current.play(); } catch {} };
 
   const [workoutDone, setWorkoutDone] = useState(false);
   useEffect(() => { setWorkoutDone(false); }, [weekIdx, dayIdx]);
@@ -685,11 +711,13 @@ function App() {
             {day.type === "lift" && (
               <>
                 <button
-                  onClick={playStartClip}
+                  onClick={toggleStartClip}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl mt-4 text-sm font-semibold uppercase tracking-wide"
                   style={{ background: C.turf, color: C.bg, fontFamily: "'IBM Plex Mono', monospace" }}
                 >
-                  <IPlay size={14} color={C.bg} /> Start Workout
+                  {startPlaying ? <IPause size={14} color={C.bg} /> : <IPlay size={14} color={C.bg} />}
+                  Start Workout
+                  {startDur > 0 && <span className="text-xs opacity-80">({fmtTime(startPos)} / {fmtTime(startDur)})</span>}
                 </button>
                 <div className="rounded-xl p-4 mt-4 mb-5" style={{ background: C.surface }}>
                   <p className="text-xs uppercase tracking-wide mb-1" style={{ color: C.textFaint }}>Warm-up</p>
@@ -700,11 +728,13 @@ function App() {
                 ))}
                 {workoutDone && (
                   <button
-                    onClick={playCompleteClip}
+                    onClick={toggleCompleteClip}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl mt-2 text-sm font-semibold uppercase tracking-wide"
                     style={{ background: C.brass, color: C.bg, fontFamily: "'IBM Plex Mono', monospace" }}
                   >
-                    <ICheck size={14} color={C.bg} /> Workout Complete
+                    {completePlaying ? <IPause size={14} color={C.bg} /> : <ICheck size={14} color={C.bg} />}
+                    Workout Complete
+                    {completeDur > 0 && <span className="text-xs opacity-80">({fmtTime(completePos)} / {fmtTime(completeDur)})</span>}
                   </button>
                 )}
               </>
