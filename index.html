@@ -463,12 +463,14 @@ function ExerciseCard({ weekIdx, dayIdx, exIdx, exercise, onStartRest, isLastExe
               <input type="number" inputMode="decimal" placeholder="lb" value={s.weight}
                 ref={(el) => (weightRefs.current[i] = el)}
                 onChange={(e) => updateSet(i, "weight", e.target.value)}
+                onFocus={(e) => e.target.select()}
                 onBlur={() => { if (s.weight !== "") repsRefs.current[i]?.focus(); }}
                 className="w-16 px-2 py-1.5 rounded-md text-sm text-center outline-none" style={{ background: C.surfaceRaised, color: C.text, fontFamily: "'IBM Plex Mono', monospace" }} />
               <span style={{ color: C.textFaint }}>×</span>
               <input type="number" inputMode="numeric" placeholder="reps" value={s.reps}
                 ref={(el) => (repsRefs.current[i] = el)}
                 onChange={(e) => updateSet(i, "reps", e.target.value)}
+                onFocus={(e) => e.target.select()}
                 onBlur={() => { if (s.reps !== "") { if (!s.done) toggleDone(i, true); weightRefs.current[i + 1]?.focus(); } }}
                 className="w-16 px-2 py-1.5 rounded-md text-sm text-center outline-none" style={{ background: C.surfaceRaised, color: C.text, fontFamily: "'IBM Plex Mono', monospace" }} />
               <button onClick={() => toggleDone(i)} className="ml-auto w-8 h-8 rounded-full flex items-center justify-center"
